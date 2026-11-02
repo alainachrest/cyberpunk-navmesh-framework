@@ -60,3 +60,15 @@ that file for each place you tested, plus what you saw:
 
 After adding our own navmesh to an area, the waypoints there should say
 "navmesh here" and the normal run should reach every one.
+
+## Results
+
+**2 Nov 2026, loading test (new sector, layer 1) in Real Netrunning's cyberspace: works.**
+Our own navigation sector, added through an ArchiveXL streaming block with
+tiles on Detour layer 1, loaded. NavTest found navmesh at every point on floor 1
+(z 9000), and a spawned NPC walked a 6-point route the normal way (pathing on
+the navmesh, walking animation), reaching 5 of 5 legs with every command
+reporting Success.
+
+So mods can add navmesh without overriding the game's own sectors: their own
+sector, their own tiles, on a layer above 0.
