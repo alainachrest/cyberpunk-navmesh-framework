@@ -16,6 +16,7 @@ module NavTest
 public class NavTestSystem extends ScriptableSystem {
     private let m_command: ref<AIMoveToCommand>;
     private let m_npc: wref<ScriptedPuppet>;
+    private let m_obstacles: array<ref<NavigationObstacle>>;
 
     public static func Get() -> ref<NavTestSystem> {
         return GameInstance.GetScriptableSystemsContainer(GetGameInstance())
@@ -78,6 +79,33 @@ public class NavTestSystem extends ScriptableSystem {
             return false;
         }
         return nav.IsPointOnNavmesh(player, Vector4(x, y, z, 1.0), tolerance);
+    }
+
+    // Puts a navigation obstacle (an upright cylinder) at a point, for human-sized
+    // NPCs. Returns how many obstacles there are now, or -1 if it failed.
+    public func AddObstacle(x: Float, y: Float, z: Float, radius: Float, height: Float) -> Int32 {
+        let nav = GameInstance.GetAINavigationSystem(GetGameInstance());
+        if !IsDefined(nav) {
+            return -1;
+        }
+        let o = nav.AddObstacle(Vector4(x, y, z, 1.0), radius, height, NavGenAgentSize.Human);
+        if !IsDefined(o) {
+            return -1;
+        }
+        ArrayPush(this.m_obstacles, o);
+        return ArraySize(this.m_obstacles);
+    }
+
+    public func ClearObstacles() -> Int32 {
+        let nav = GameInstance.GetAINavigationSystem(GetGameInstance());
+        let n = ArraySize(this.m_obstacles);
+        if IsDefined(nav) {
+            for o in this.m_obstacles {
+                nav.RemoveObstacle(o);
+            }
+        }
+        ArrayClear(this.m_obstacles);
+        return n;
     }
 
     public func Cancel() {

@@ -125,6 +125,24 @@ function NavTest.checkHere()
 		nav == true and "navmesh here" or (nav == false and "NO navmesh here" or "navmesh unknown")))
 end
 
+-- Navigation obstacles: an upright cylinder where V stands (2 m across, 3 m
+-- tall). Put one on the straight line between two waypoints and see whether
+-- the NPC walks round it, stops, or walks through.
+function NavTest.addObstacle()
+	local p = player()
+	if p == nil then return end
+	local s = system()
+	local n = s and try(function() return s:AddObstacle(p.x, p.y, p.z, 1.0, 3.0) end)
+	if n == nil or n < 0 then log("obstacle: the game refused it") return end
+	log(string.format("obstacle %d at %.1f, %.1f, %.1f", n, p.x, p.y, p.z))
+end
+
+function NavTest.clearObstacles()
+	local s = system()
+	local n = s and try(function() return s:ClearObstacles() end)
+	log("obstacles removed: " .. tostring(n))
+end
+
 function NavTest.clearWaypoints()
 	NavTest.waypoints = {}
 	log("waypoints cleared")
@@ -303,6 +321,7 @@ registerForEvent("onOverlayOpen", function() NavTest.overlay = true end)
 registerForEvent("onOverlayClose", function() NavTest.overlay = false end)
 
 registerHotkey("navtest_spot", "Mark navmesh test spot", function() NavTest.markSpot() end)
+registerHotkey("navtest_obstacle", "Add navigation obstacle here", function() NavTest.addObstacle() end)
 registerHotkey("navtest_check", "Check for navmesh here", function() NavTest.checkHere() end)
 registerHotkey("navtest_waypoint", "Add waypoint (your position)", function() NavTest.addWaypoint() end)
 registerHotkey("navtest_spawn", "Spawn test NPC", function() NavTest.spawn() end)
@@ -317,6 +336,9 @@ registerForEvent("onDraw", function()
 		if ImGui.Button("Check for navmesh here") then NavTest.checkHere() end
 		ImGui.SameLine()
 		if ImGui.Button("Mark navmesh test spot") then NavTest.markSpot() end
+		if ImGui.Button("Add obstacle here") then NavTest.addObstacle() end
+		ImGui.SameLine()
+		if ImGui.Button("Remove obstacles") then NavTest.clearObstacles() end
 		ImGui.Separator()
 		if ImGui.Button("Add waypoint (where V stands)") then NavTest.addWaypoint() end
 		ImGui.SameLine()
