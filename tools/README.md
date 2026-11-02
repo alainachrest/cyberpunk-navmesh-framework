@@ -25,3 +25,10 @@ Both put a flat square of navmesh (16 m by default) at a spot where there is non
   mod can own a tile this way.
 
 Check with NavTest's **Check for navmesh here** standing on the square.
+
+Real Netrunning's cyberspace (8 floors, 18 m apart, around its origin):
+
+    python make_test.py layer -1085 880 9000 --size 192 --floors 8 --gap 18
+
+Tiles are grouped into the game's 5 x 5 tile resources, one node each, and
+stacked floors share tiles (as the game's multi-level areas do).

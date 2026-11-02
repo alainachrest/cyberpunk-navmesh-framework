@@ -260,10 +260,12 @@ def _edge_on_boundary(a, b):
 
 
 def flat_tiles(x0, y0, x1, y1, z, agent=HUMAN, layer=0, area=3, flags=3):
-    """Navmesh for a flat rectangle (world x0..x1, y0..y1 at height z), split on
-    the game's 32.4 m tile grid. Returns {(tx, ty): Tile}. Each tile piece is
-    one square of two triangles; edges shared with the neighbouring piece are
-    portals, the rectangle's outline is wall."""
+    """Navmesh for a flat rectangle (world x0..x1, y0..y1) at height z, or at
+    several heights (z a list: stacked floors, all in the same tiles, as the
+    game does it), split on the game's 32.4 m tile grid. Returns
+    {(tx, ty): Tile}. Each tile piece is a square of two triangles per floor;
+    edges shared with the neighbouring piece are portals, the outline is wall."""
+    zs = list(z) if isinstance(z, (list, tuple)) else [z]
     tiles = {}
     tx0, tx1 = math.floor(x0 / TILE_SIZE), math.floor((x1 - 1e-4) / TILE_SIZE)
     ty0, ty1 = math.floor(y0 / TILE_SIZE), math.floor((y1 - 1e-4) / TILE_SIZE)
@@ -273,24 +275,26 @@ def flat_tiles(x0, y0, x1, y1, z, agent=HUMAN, layer=0, area=3, flags=3):
             ay, by = max(y0, ty * TILE_SIZE), min(y1, (ty + 1) * TILE_SIZE)
             t = Tile()
             t.x, t.y, t.layer, t.agent = tx, ty, layer, agent
-            t.bmin = [tx * TILE_SIZE, z - 1.0, ty * TILE_SIZE]
-            t.bmax = [(tx + 1) * TILE_SIZE, z + 1.0, (ty + 1) * TILE_SIZE]
-            # same corner order as the game's single-square tiles:
-            # 0 (min x, max y), 1 (max x, max y), 2 (max x, min y), 3 (min x, min y)
-            t.verts = [(ax, z, by), (bx, z, by), (bx, z, ay), (ax, z, ay)]
+            t.bmin = [tx * TILE_SIZE, min(zs) - 1.0, ty * TILE_SIZE]
+            t.bmax = [(tx + 1) * TILE_SIZE, max(zs) + 1.0, (ty + 1) * TILE_SIZE]
             east = EXT_LINK | 0 if bx < x1 - 1e-4 else 0
             north = EXT_LINK | 2 if by < y1 - 1e-4 else 0
             west = EXT_LINK | 4 if ax > x0 + 1e-4 else 0
             south = EXT_LINK | 6 if ay > y0 + 1e-4 else 0
-            # triangle 0: 0-1-2 (north edge, east edge, diagonal -> poly 1)
-            # triangle 1: 0-2-3 (diagonal -> poly 0, south edge, west edge)
-            t.polys = [
-                dict(verts=[0, 1, 2], neis=[north, east, 2], flags=flags, area=area, type=0),
-                dict(verts=[0, 2, 3], neis=[1, south, west], flags=flags, area=area, type=0),
-            ]
-            t.detail_meshes = [(0, 0, 0, 1), (0, 1, 0, 1)]
-            t.detail_tris = [(0, 1, 2, 0x15), (0, 1, 2, 0x15)]
-            t.offmesh_base = 2
+            for k, h in enumerate(zs):
+                v, p = 4 * k, 2 * k
+                # same corner order as the game's single-square tiles:
+                # 0 (min x, max y), 1 (max x, max y), 2 (max x, min y), 3 (min x, min y)
+                t.verts += [(ax, h, by), (bx, h, by), (bx, h, ay), (ax, h, ay)]
+                # triangle 0: 0-1-2 (north edge, east edge, diagonal -> the other triangle)
+                # triangle 1: 0-2-3 (diagonal, south edge, west edge); neighbours are 1-based
+                t.polys += [
+                    dict(verts=[v, v + 1, v + 2], neis=[north, east, p + 2], flags=flags, area=area, type=0),
+                    dict(verts=[v, v + 2, v + 3], neis=[p + 1, south, west], flags=flags, area=area, type=0),
+                ]
+                t.detail_meshes += [(0, p, 0, 1), (0, p + 1, 0, 1)]
+                t.detail_tris += [(0, 1, 2, 0x15), (0, 1, 2, 0x15)]
+            t.offmesh_base = len(t.polys)
             finish(t)
             tiles[(tx, ty)] = t
     return tiles

@@ -45,6 +45,27 @@ def _node_record(pos, index, node_id):
     return b
 
 
+def _res_pos(r, centre, i):
+    """A resource's node position: given, or the centre of its tiles."""
+    if r.get("pos"):
+        return tuple(r["pos"])
+    ts = list(r["tiles"].values())
+    return (round((min(t.bmin[0] for t in ts) + max(t.bmax[0] for t in ts)) / 2, 1),
+            round((min(t.bmin[2] for t in ts) + max(t.bmax[2] for t in ts)) / 2, 1),
+            round((min(t.bmin[1] for t in ts) + max(t.bmax[1] for t in ts)) / 2, 1))
+
+
+def split_resources(tiles, path_fmt, agent="Human"):
+    """Groups tiles into the game's 5 x 5 tile resources (162 m squares)."""
+    groups = {}
+    for key, t in tiles.items():
+        groups.setdefault((key[0] // 5, key[1] // 5), {})[key] = t
+    out = []
+    for (rx, ry), g in sorted(groups.items()):
+        out.append(dict(path=path_fmt.format(rx=rx, ry=ry), agent=agent, tiles=g))
+    return out
+
+
 def build_sector(name, resources):
     """A navigation streaming sector holding our own tile resources.
 
@@ -79,23 +100,25 @@ def build_sector(name, resources):
         ]
         f.exports.append(node)
         node_idx.append(len(f.exports) - 1)
-        pos = (centre[0], centre[1], centre[2] + 0.3 * i)
-        nodes_data += _node_record(pos, i, rng.getrandbits(40))
+        nodes_data += _node_record(_res_pos(r, centre, i), i, rng.getrandbits(40))
 
     for i, r in enumerate(resources):
         res = Obj("worldNavigationTileResource")
         keys = sorted(r["tiles"])                     # x-major, as the game orders them
         rows = []
         refs = []
-        pos = (centre[0], centre[1], centre[2] + 0.3 * i)
+        pos = _res_pos(r, centre, i)
         for k, key in enumerate(keys):
             t = r["tiles"][key]
             bi = f.add_buffer(detour.write_tile(t), BUFFER_FLAGS)
             refs.append(0x80000000 | (bi + 2))       # +1 for 1-based, +1 for the node data buffer before
             rows.append(_struct(f, [("tileX", "Int32", p_i32(t.x)), ("tileY", "Int32", p_i32(t.y)),
                                     ("tileIndex", "Uint32", p_u32(k)), ("bufferIndex", "Uint32", p_u32(k))]))
-        lo = (mn[0] - pos[0], mn[1] - pos[1], mn[2] - pos[2])
-        hi = (mx[0] - pos[0], mx[1] - pos[1], mx[2] - pos[2])
+        ts = list(r["tiles"].values())
+        rmn = (min(t.bmin[0] for t in ts), min(t.bmin[2] for t in ts), min(t.bmin[1] for t in ts))
+        rmx = (max(t.bmax[0] for t in ts), max(t.bmax[2] for t in ts), max(t.bmax[1] for t in ts))
+        lo = (rmn[0] - pos[0], rmn[1] - pos[1], rmn[2] - pos[2])
+        hi = (rmx[0] - pos[0], rmx[1] - pos[1], rmx[2] - pos[2])
         res.props = [
             Prop("cookingPlatform", "ECookingPlatform", p_u16(f.nid("PLATFORM_PC"))),
             Prop("localBoundingBox", "Box", _box(f, lo, hi)),

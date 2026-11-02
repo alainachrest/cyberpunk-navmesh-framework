@@ -11,6 +11,8 @@
       decompressed (see kark): a directory of seg_000.bin, seg_001.bin...
 
 X Y Z are game world coordinates (z up), e.g. from NavTest's navtest_spots.txt.
+--floors N --gap G stacks N floors going down from Z (Real Netrunning's
+cyberspace: -1085 880 9000 --size 192 --floors 8 --gap 18).
 """
 import argparse
 import glob
@@ -27,6 +29,7 @@ MOD_DIR = "mod\\navmesh_framework_test"
 
 
 def square(x, y, z, size, layer, agent=detour.HUMAN):
+    """z: a height, or a list of heights (stacked floors)."""
     h = size / 2
     return detour.flat_tiles(x - h, y - h, x + h, y + h, z, agent=agent, layer=layer)
 
@@ -34,9 +37,9 @@ def square(x, y, z, size, layer, agent=detour.HUMAN):
 def make_layer(x, y, z, size, out):
     sector_path = MOD_DIR + "\\navmesh_test.streamingsector"
     block_path = MOD_DIR + "\\navmesh_test.streamingblock"
-    res_path = MOD_DIR + "\\navmesh_test_0.navmesh"
     tiles = square(x, y, z, size, layer=1)
-    sec, centre, half = navmod.build_sector("navmesh_test", [dict(path=res_path, agent="Human", tiles=tiles)])
+    resources = navmod.split_resources(tiles, MOD_DIR + "\\navmesh_test_{rx}_{ry}_0.navmesh")
+    sec, centre, half = navmod.build_sector("navmesh_test", resources)
     blk = navmod.build_block([(sector_path, centre)])
     files = []
     for path, f in ((sector_path, sec), (block_path, blk)):
@@ -113,15 +116,18 @@ def main():
     ap.add_argument("y", type=float)
     ap.add_argument("z", type=float)
     ap.add_argument("--size", type=float, default=16.0)
+    ap.add_argument("--floors", type=int, default=1, help="stacked floors going down from Z")
+    ap.add_argument("--gap", type=float, default=18.0, help="metres between stacked floors")
     ap.add_argument("--sector", help="merge: directory of the sector's decompressed segments")
     ap.add_argument("--sector-path", help="merge: the sector's depot path")
     ap.add_argument("--out", default="out")
     a = ap.parse_args()
+    z = [a.z - k * a.gap for k in range(a.floors)] if a.floors > 1 else a.z
     if a.mode == "layer":
-        tiles, centre = make_layer(a.x, a.y, a.z, a.size, a.out)
+        tiles, centre = make_layer(a.x, a.y, z, a.size, a.out)
         print("layer test: tiles", tiles, "node at", centre)
     else:
-        print("merged tiles", make_merge(a.x, a.y, a.z, a.size, a.sector, a.sector_path, a.out))
+        print("merged tiles", make_merge(a.x, a.y, z, a.size, a.sector, a.sector_path, a.out))
 
 
 if __name__ == "__main__":
