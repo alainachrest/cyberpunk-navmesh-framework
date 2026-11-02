@@ -128,19 +128,35 @@ end
 -- Navigation obstacles: an upright cylinder where V stands (2 m across, 3 m
 -- tall). Put one on the straight line between two waypoints and see whether
 -- the NPC walks round it, stops, or walks through.
+-- (CET's NavigationSystem has AddObstacle/RemoveObstacle; redscript's doesn't.)
+NavTest.obstacles = {}
+
+local function navSystem()
+	return try(function() return Game.GetNavigationSystem() end)
+		or try(function() return Game.NavigationSystem() end)
+end
+
 function NavTest.addObstacle()
 	local p = player()
 	if p == nil then return end
-	local s = system()
-	local n = s and try(function() return s:AddObstacle(p.x, p.y, p.z, 1.0, 3.0) end)
-	if n == nil or n < 0 then log("obstacle: the game refused it") return end
-	log(string.format("obstacle %d at %.1f, %.1f, %.1f", n, p.x, p.y, p.z))
+	local ns = navSystem()
+	if ns == nil then log("obstacle: no navigation system") return end
+	local o = try(function()
+		return ns:AddObstacle(Vector4.new(p.x, p.y, p.z, 1.0), 1.0, 3.0, Enum.new("NavGenAgentSize", "Human"))
+	end)
+	if o == nil then log("obstacle: the game refused it") return end
+	table.insert(NavTest.obstacles, o)
+	log(string.format("obstacle %d at %.1f, %.1f, %.1f", #NavTest.obstacles, p.x, p.y, p.z))
 end
 
 function NavTest.clearObstacles()
-	local s = system()
-	local n = s and try(function() return s:ClearObstacles() end)
-	log("obstacles removed: " .. tostring(n))
+	local ns = navSystem()
+	local n = #NavTest.obstacles
+	for _, o in ipairs(NavTest.obstacles) do
+		if ns then try(function() ns:RemoveObstacle(o) end) end
+	end
+	NavTest.obstacles = {}
+	log("obstacles removed: " .. n)
 end
 
 function NavTest.clearWaypoints()
