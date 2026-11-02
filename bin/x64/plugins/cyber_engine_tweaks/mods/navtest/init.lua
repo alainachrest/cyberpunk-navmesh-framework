@@ -98,6 +98,33 @@ function NavTest.addWaypoint()
 		p.navmesh == true and "navmesh here" or (p.navmesh == false and "NO navmesh here" or "navmesh unknown")))
 end
 
+-- Marks where V stands as a spot to build test navmesh at. Appends to
+-- navtest_spots.txt: x y z yaw navmesh(1/0/?)
+function NavTest.markSpot()
+	local p = player()
+	if p == nil then return end
+	local s = system()
+	local nav = s and try(function() return s:OnNavmesh(p.x, p.y, p.z, 1.0) end)
+	local f = io.open("navtest_spots.txt", "a")
+	if f then
+		f:write(string.format("%.3f %.3f %.3f %.1f %s\n", p.x, p.y, p.z, p.yaw or 0,
+			nav == true and "1" or (nav == false and "0" or "?")))
+		f:close()
+	end
+	log(string.format("spot marked at %.1f, %.1f, %.1f: %s", p.x, p.y, p.z,
+		nav == true and "navmesh here" or (nav == false and "NO navmesh here" or "navmesh unknown")))
+end
+
+-- Is there navmesh where V stands right now?
+function NavTest.checkHere()
+	local p = player()
+	if p == nil then return end
+	local s = system()
+	local nav = s and try(function() return s:OnNavmesh(p.x, p.y, p.z, 1.0) end)
+	log(string.format("at %.1f, %.1f, %.1f: %s", p.x, p.y, p.z,
+		nav == true and "navmesh here" or (nav == false and "NO navmesh here" or "navmesh unknown")))
+end
+
 function NavTest.clearWaypoints()
 	NavTest.waypoints = {}
 	log("waypoints cleared")
@@ -275,6 +302,8 @@ registerForEvent("onUpdate", function(dt) update(dt) end)
 registerForEvent("onOverlayOpen", function() NavTest.overlay = true end)
 registerForEvent("onOverlayClose", function() NavTest.overlay = false end)
 
+registerHotkey("navtest_spot", "Mark navmesh test spot", function() NavTest.markSpot() end)
+registerHotkey("navtest_check", "Check for navmesh here", function() NavTest.checkHere() end)
 registerHotkey("navtest_waypoint", "Add waypoint (your position)", function() NavTest.addWaypoint() end)
 registerHotkey("navtest_spawn", "Spawn test NPC", function() NavTest.spawn() end)
 registerHotkey("navtest_both", "Run both tests", function() NavTest.start({ "normal", "ignore" }) end)
@@ -285,6 +314,10 @@ registerForEvent("onDraw", function()
 	if ImGui.Begin("NavTest") then
 		ImGui.Text("Waypoints: " .. #NavTest.waypoints .. "    NPC: " .. (NavTest.npc and "spawned" or "none") ..
 			"    Test: " .. (NavTest.test and "running" or "idle"))
+		if ImGui.Button("Check for navmesh here") then NavTest.checkHere() end
+		ImGui.SameLine()
+		if ImGui.Button("Mark navmesh test spot") then NavTest.markSpot() end
+		ImGui.Separator()
 		if ImGui.Button("Add waypoint (where V stands)") then NavTest.addWaypoint() end
 		ImGui.SameLine()
 		if ImGui.Button("Clear waypoints") then NavTest.clearWaypoints() end

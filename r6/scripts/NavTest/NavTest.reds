@@ -40,7 +40,9 @@ public class NavTestSystem extends ScriptableSystem {
         let cmd = new AIMoveToCommand();
         let target: WorldPosition;
         WorldPosition.SetVector4(target, Vector4(x, y, z, 1.0));
-        AIPositionSpec.SetWorldPosition(cmd.movementTarget, target);
+        let spec: AIPositionSpec;
+        AIPositionSpec.SetWorldPosition(spec, target);
+        cmd.movementTarget = spec;
         cmd.movementType = run ? moveMovementType.Run : moveMovementType.Walk;
         cmd.ignoreNavigation = ignoreNav;
         cmd.useStart = true;
