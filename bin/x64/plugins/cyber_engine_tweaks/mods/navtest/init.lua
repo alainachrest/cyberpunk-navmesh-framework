@@ -1,5 +1,5 @@
 --[[
-NavTest: can NPCs walk where there's no navmesh?
+NavTest: checks for the navmesh framework (is there navmesh here, can an NPC path here)
 
 Lay down a route by walking it and pressing "Add waypoint" at each corner,
 spawn a test NPC, then run the tests. The NPC walks the route twice:

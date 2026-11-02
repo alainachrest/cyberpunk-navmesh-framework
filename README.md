@@ -1,13 +1,23 @@
-# Cyberpunk navmesh framework: test 1
+# Cyberpunk navmesh framework
 
-Can NPCs walk where there's no navmesh? If they can, a navigation framework for
-modded and generated areas can be a graph of waypoints instead of real navmesh,
-which modders can't make.
+A framework that lets modders add real navmesh to custom areas, so NPCs can
+path around them like they do in the rest of Night City.
 
-The game's own move command, `AIMoveToCommand`, has an `ignoreNavigation`
-switch. This test sends an NPC along a route you lay down, twice: once the
-normal way (asking the navmesh for a path) and once with `ignoreNavigation` on,
-and records what happens on every leg.
+The game's navmesh is Recast/Detour tiles (see [docs/navmesh-format.md](docs/navmesh-format.md)),
+so the plan is: build tiles for a custom area with Recast, using the game's
+settings, package them as `.navmesh` resources with navigation sectors, and have
+the game load them.
+
+## Test 1: the checking tool
+
+NavTest is the in-game check for all of that. It records, at points you choose,
+whether the game finds navmesh there, and sends an NPC along a route the normal
+way (asking the navmesh for a path). Run it on a custom area before and after
+adding navmesh: before, the points say "NO navmesh" and the normal walk fails;
+once our navmesh loads, both should change.
+
+It also does a second run with `AIMoveToCommand`'s `ignoreNavigation` switch on,
+for comparison: what NPCs do in an area that has no navmesh yet.
 
 ## Install
 
@@ -46,6 +56,7 @@ that file for each place you tested, plus what you saw:
 | Normal | Ignore navigation | Meaning |
 | --- | --- | --- |
 | reaches | reaches | Both work there (expected on a street) |
-| fails | reaches, walking | No navmesh needed: a waypoint framework works |
-| fails | reaches, sliding | It can be moved but looks wrong: needs more work |
-| fails | fails | `ignoreNavigation` isn't enough: next test is splines |
+| fails | either | No navmesh there yet (expected before we add ours) |
+
+After adding our own navmesh to an area, the waypoints there should say
+"navmesh here" and the normal run should reach every one.

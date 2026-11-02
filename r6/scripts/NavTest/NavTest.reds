@@ -1,11 +1,12 @@
 // -----------------------------------------------------------------------------
-// NavTest - can NPCs walk where there's no navmesh?
+// NavTest - checks for the navmesh framework
 // -----------------------------------------------------------------------------
 //
-// The game's own move command, AIMoveToCommand, has an `ignoreNavigation`
-// switch. If an NPC told to walk with it on gets there on foot (with its walking
-// animation) across ground that has no navmesh, a navigation framework for
-// modded areas can be a graph of waypoints: no navmesh needed.
+// The framework adds real navmesh to custom areas. This checks, in game,
+// whether the game finds navmesh at a point and whether an NPC can path there
+// (AIMoveToCommand the normal way), so an area can be tested before and after
+// our navmesh is added. A second mode with `ignoreNavigation` on is kept for
+// comparison.
 //
 // The CET side (bin/x64/plugins/cyber_engine_tweaks/mods/navtest) runs the
 // tests and asks this system to send the commands and report their state.
