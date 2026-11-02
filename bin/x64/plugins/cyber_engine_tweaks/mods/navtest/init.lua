@@ -91,8 +91,11 @@ end
 function NavTest.addWaypoint()
 	local p = player()
 	if p == nil then return end
+	local s = system()
+	p.navmesh = s and try(function() return s:OnNavmesh(p.x, p.y, p.z, 1.0) end)
 	table.insert(NavTest.waypoints, p)
-	log(string.format("waypoint %d at %.1f, %.1f, %.1f", #NavTest.waypoints, p.x, p.y, p.z))
+	log(string.format("waypoint %d at %.1f, %.1f, %.1f: %s", #NavTest.waypoints, p.x, p.y, p.z,
+		p.navmesh == true and "navmesh here" or (p.navmesh == false and "NO navmesh here" or "navmesh unknown")))
 end
 
 function NavTest.clearWaypoints()
@@ -183,6 +186,11 @@ end
 
 local function summarise(t)
 	log("---- summary")
+	local on, off = 0, 0
+	for _, w in ipairs(NavTest.waypoints) do
+		if w.navmesh == true then on = on + 1 elseif w.navmesh == false then off = off + 1 end
+	end
+	log(string.format("  route: %d waypoints on navmesh, %d with none", on, off))
 	for _, mode in ipairs(t.modes) do
 		local legs, reached, moved, fell = 0, 0, 0, false
 		for _, s in ipairs(t.summary) do

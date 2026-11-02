@@ -31,7 +31,8 @@ Hotkeys can be bound in CET for adding waypoints, spawning, running and stopping
 
 ## What to report
 
-The window shows each leg, then a summary, and the same text is written to
+Each waypoint you add says whether the game finds navmesh under it, so you
+can tell the no-navmesh run really had none. The window shows each leg, then a summary, and the same text is written to
 `bin/x64/plugins/cyber_engine_tweaks/mods/navtest/navtest_results.txt`. Send
 that file for each place you tested, plus what you saw:
 

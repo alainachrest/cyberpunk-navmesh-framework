@@ -66,6 +66,17 @@ public class NavTestSystem extends ScriptableSystem {
         return EnumInt(ai.GetCommandState(this.m_command));
     }
 
+    // Is there navmesh at this point (within `tolerance` metres)? Asked of the
+    // game's own navigation system, for V's size.
+    public func OnNavmesh(x: Float, y: Float, z: Float, tolerance: Float) -> Bool {
+        let player = GameInstance.GetPlayerSystem(GetGameInstance()).GetLocalPlayerControlledGameObject();
+        let nav = GameInstance.GetAINavigationSystem(GetGameInstance());
+        if !IsDefined(nav) || !IsDefined(player) {
+            return false;
+        }
+        return nav.IsPointOnNavmesh(player, Vector4(x, y, z, 1.0), tolerance);
+    }
+
     public func Cancel() {
         if IsDefined(this.m_command) && IsDefined(this.m_npc) {
             this.m_npc.GetAIControllerComponent().CancelCommand(this.m_command);
