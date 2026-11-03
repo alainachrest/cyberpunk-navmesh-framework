@@ -159,6 +159,17 @@ function NavTest.clearObstacles()
 	log("obstacles removed: " .. n)
 end
 
+-- The loading test's navigation nodes (NavmeshFrameworkTest_Layer.archive)
+-- carry NodeRefs; switch them all off or on with Codeware's WorldStateSystem.
+NavTest.testNodes = { prefix = "$/navmesh_framework_test/#navtest_node_", count = 6 }
+
+function NavTest.toggleTestNavmesh(state)
+	local s = system()
+	local n = s and try(function() return s:ToggleNodes(NavTest.testNodes.prefix, NavTest.testNodes.count, state) end)
+	if n == nil or n < 0 then log("toggle: Codeware's WorldStateSystem isn't there") return end
+	log("test navmesh nodes switched " .. (state and "ON" or "OFF") .. " (" .. n .. " nodes). Now check for navmesh.")
+end
+
 function NavTest.clearWaypoints()
 	NavTest.waypoints = {}
 	log("waypoints cleared")
@@ -352,6 +363,9 @@ registerForEvent("onDraw", function()
 		if ImGui.Button("Check for navmesh here") then NavTest.checkHere() end
 		ImGui.SameLine()
 		if ImGui.Button("Mark navmesh test spot") then NavTest.markSpot() end
+		if ImGui.Button("Test navmesh OFF") then NavTest.toggleTestNavmesh(false) end
+		ImGui.SameLine()
+		if ImGui.Button("Test navmesh ON") then NavTest.toggleTestNavmesh(true) end
 		if ImGui.Button("Add obstacle here") then NavTest.addObstacle() end
 		ImGui.SameLine()
 		if ImGui.Button("Remove obstacles") then NavTest.clearObstacles() end

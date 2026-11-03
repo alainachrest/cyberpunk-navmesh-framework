@@ -80,6 +80,21 @@ public class NavTestSystem extends ScriptableSystem {
         return nav.IsPointOnNavmesh(player, Vector4(x, y, z, 1.0), tolerance);
     }
 
+    // Switches world nodes "<prefix>0" .. "<prefix><count-1>" on or off with
+    // Codeware's WorldStateSystem. Returns how many it asked for, -1 without it.
+    public func ToggleNodes(prefix: String, count: Int32, state: Bool) -> Int32 {
+        let ws = GameInstance.GetWorldStateSystem();
+        if !IsDefined(ws) {
+            return -1;
+        }
+        let i = 0;
+        while i < count {
+            ws.ToggleNode(CreateNodeRef(prefix + ToString(i)), state);
+            i += 1;
+        }
+        return count;
+    }
+
     public func Cancel() {
         if IsDefined(this.m_command) && IsDefined(this.m_npc) {
             this.m_npc.GetAIControllerComponent().CancelCommand(this.m_command);

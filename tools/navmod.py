@@ -66,10 +66,23 @@ def split_resources(tiles, path_fmt, agent="Human"):
     return out
 
 
+def node_ref_hash(ref):
+    """A NodeRef's hash, as the game stores it in node data: FNV-1a 64 of the
+    path without its '#' marks (e.g. "$/my_mod/#my_node")."""
+    return cr2w.fnv1a64(ref.replace("#", ""))
+
+
+def _node_ref_bytes(ref):
+    b = ref.encode()
+    return p_vlq(-len(b)) + b          # length-prefixed, negative = UTF-8
+
+
 def build_sector(name, resources):
     """A navigation streaming sector holding our own tile resources.
 
-    resources: [dict(path, agent ('Human'/'Vehicle'), tiles {(tx,ty): detour.Tile})]
+    resources: [dict(path, agent ('Human'/'Vehicle'), tiles {(tx,ty): detour.Tile},
+                     ref (optional NodeRef, e.g. "$/my_mod/#node_0", so scripts can
+                     switch the node on and off))]
     Returns (cr2w.File, node position, half-extent)."""
     f = cr2w.File()
     for s in ("worldStreamingSector", "cookingPlatform", "ECookingPlatform", "PLATFORM_PC",
@@ -100,7 +113,8 @@ def build_sector(name, resources):
         ]
         f.exports.append(node)
         node_idx.append(len(f.exports) - 1)
-        nodes_data += _node_record(_res_pos(r, centre, i), i, rng.getrandbits(40))
+        node_id = node_ref_hash(r["ref"]) if r.get("ref") else rng.getrandbits(40)
+        nodes_data += _node_record(_res_pos(r, centre, i), i, node_id)
 
     for i, r in enumerate(resources):
         res = Obj("worldNavigationTileResource")
@@ -142,7 +156,8 @@ def build_sector(name, resources):
     ]
     inner = p_u32(0x80000001)                         # node data buffer
     inner += p_vlq(len(node_idx)) + b"".join(p_i32(i + 1) for i in node_idx)
-    inner += p_vlq(0)                                 # node refs
+    refs = [r["ref"] for r in resources if r.get("ref")]
+    inner += p_vlq(len(refs)) + b"".join(_node_ref_bytes(x) for x in refs)   # node refs
     inner += p_vlq(1) + p_i32(0)                      # variant indices
     inner += p_i32(0)                                 # persistent node index
     sector.appendix = p_i32(SECTOR_VERSION) + p_i32(len(inner) + 4) + inner

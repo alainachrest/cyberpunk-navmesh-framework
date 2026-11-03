@@ -39,6 +39,8 @@ def make_layer(x, y, z, size, out):
     block_path = MOD_DIR + "\\navmesh_test.streamingblock"
     tiles = square(x, y, z, size, layer=1)
     resources = navmod.split_resources(tiles, MOD_DIR + "\\navmesh_test_{rx}_{ry}_0.navmesh")
+    for i, r in enumerate(resources):
+        r["ref"] = "$/navmesh_framework_test/#navtest_node_%d" % i
     sec, centre, half = navmod.build_sector("navmesh_test", resources)
     blk = navmod.build_block([(sector_path, centre)])
     files = []
