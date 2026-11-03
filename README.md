@@ -72,3 +72,19 @@ reporting Success.
 
 So mods can add navmesh without overriding the game's own sectors: their own
 sector, their own tiles, on a layer above 0.
+
+**3 Nov 2026, switching navmesh while playing: works through world variants.**
+- Navigation obstacles (`NavigationSystem.AddObstacle`) don't change NPC paths,
+  on our navmesh or the game's (tested on a street: the NPC walked straight
+  through).
+- Codeware's `WorldStateSystem.ToggleNode` on our navigation nodes didn't
+  unload their navmesh.
+- **World variants do.** The game stores some tiles in several versions keyed
+  by world variant IDs (`activeVariantIDs` / `allVariantIDs` in `tilesData`;
+  47 of its 3,846 navigation sectors do this, for quest states). We gave every
+  test tile a second version 10 m lower, registered a variant on our streaming
+  block, and switched it with `WorldStateSystem.ToggleVariant`: navmesh here ->
+  variant on -> NO navmesh here -> variant off -> navmesh here.
+
+So navmesh can change at runtime, as long as every state it can be in is built
+in advance as a tile version.
