@@ -298,3 +298,63 @@ def flat_tiles(x0, y0, x1, y1, z, agent=HUMAN, layer=0, area=3, flags=3):
             finish(t)
             tiles[(tx, ty)] = t
     return tiles
+
+
+def tile_from_triangles(tx, ty, tris, agent=HUMAN, layer=0, area=3, flags=3, pad=1.0):
+    """A tile from triangles in game coordinates [((x, y, z), (x, y, z), (x, y, z)), ...],
+    each wound like the game's (clockwise seen from above). Triangles sharing an
+    edge become neighbours; edges lying on the tile's border become portals to
+    the next tile; every other edge is wall."""
+    t = Tile()
+    t.x, t.y, t.layer, t.agent = tx, ty, layer, agent
+    x0, y0 = tx * TILE_SIZE, ty * TILE_SIZE
+    x1, y1 = x0 + TILE_SIZE, y0 + TILE_SIZE
+    index = {}
+
+    def vid(p):
+        key = (round(p[0], 3), round(p[1], 3), round(p[2], 3))
+        if key not in index:
+            index[key] = len(t.verts)
+            t.verts.append((p[0], p[2], p[1]))        # Detour order: x, height, y
+        return index[key]
+
+    polys = [[vid(p) for p in tri] for tri in tris]
+    edges = {}
+    for pi, vs in enumerate(polys):
+        for j in range(3):
+            edges[(vs[j], vs[(j + 1) % 3])] = pi
+    eps = 1e-3
+    for pi, vs in enumerate(polys):
+        neis = []
+        for j in range(3):
+            a, b = vs[j], vs[(j + 1) % 3]
+            other = edges.get((b, a))
+            if other is not None:
+                neis.append(other + 1)
+                continue
+            va, vb = t.verts[a], t.verts[b]
+            if abs(va[0] - x1) < eps and abs(vb[0] - x1) < eps:
+                neis.append(EXT_LINK | 0)
+            elif abs(va[2] - y1) < eps and abs(vb[2] - y1) < eps:
+                neis.append(EXT_LINK | 2)
+            elif abs(va[0] - x0) < eps and abs(vb[0] - x0) < eps:
+                neis.append(EXT_LINK | 4)
+            elif abs(va[2] - y0) < eps and abs(vb[2] - y0) < eps:
+                neis.append(EXT_LINK | 6)
+            else:
+                neis.append(0)
+        t.polys.append(dict(verts=vs, neis=neis, flags=flags, area=area, type=0))
+        t.detail_meshes.append((0, pi, 0, 1))
+        t.detail_tris.append((0, 1, 2, 0x15))
+    hs = [v[1] for v in t.verts] or [0.0]
+    t.bmin = [x0, min(hs) - pad, y0]
+    t.bmax = [x1, max(hs) + pad, y1]
+    t.offmesh_base = len(t.polys)
+    finish(t)
+    return t
+
+
+def rect_tris(xa, ya, xb, yb, z):
+    """Two triangles covering a rectangle, wound like the game's tiles."""
+    p0, p1, p2, p3 = (xa, yb, z), (xb, yb, z), (xb, ya, z), (xa, ya, z)
+    return [(p0, p1, p2), (p0, p2, p3)]
