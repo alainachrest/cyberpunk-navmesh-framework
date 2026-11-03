@@ -170,6 +170,17 @@ function NavTest.toggleTestNavmesh(state)
 	log("test navmesh nodes switched " .. (state and "ON" or "OFF") .. " (" .. n .. " nodes). Now check for navmesh.")
 end
 
+-- The loading test's world variant: while it's on, the game should use the
+-- versions of the test tiles that sit 10 m lower (so "Check" says NO navmesh).
+NavTest.testVariant = { ref = "$/navmesh_framework_test/#navtest_switch", name = "navtest_lowered" }
+
+function NavTest.toggleTestVariant(state)
+	local s = system()
+	local ok = s and try(function() return s:ToggleVariant(NavTest.testVariant.ref, NavTest.testVariant.name, state) end)
+	if not ok then log("variant: Codeware's WorldStateSystem isn't there") return end
+	log("variant " .. NavTest.testVariant.name .. " switched " .. (state and "ON (navmesh should drop 10 m)" or "OFF (navmesh back on the floor)") .. ". Now check for navmesh.")
+end
+
 function NavTest.clearWaypoints()
 	NavTest.waypoints = {}
 	log("waypoints cleared")
@@ -366,6 +377,9 @@ registerForEvent("onDraw", function()
 		if ImGui.Button("Test navmesh OFF") then NavTest.toggleTestNavmesh(false) end
 		ImGui.SameLine()
 		if ImGui.Button("Test navmesh ON") then NavTest.toggleTestNavmesh(true) end
+		if ImGui.Button("Variant ON (lower navmesh)") then NavTest.toggleTestVariant(true) end
+		ImGui.SameLine()
+		if ImGui.Button("Variant OFF") then NavTest.toggleTestVariant(false) end
 		if ImGui.Button("Add obstacle here") then NavTest.addObstacle() end
 		ImGui.SameLine()
 		if ImGui.Button("Remove obstacles") then NavTest.clearObstacles() end

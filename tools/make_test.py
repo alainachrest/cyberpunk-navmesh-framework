@@ -34,6 +34,10 @@ def square(x, y, z, size, layer, agent=detour.HUMAN):
     return detour.flat_tiles(x - h, y - h, x + h, y + h, z, agent=agent, layer=layer)
 
 
+VARIANT_REF = "$/navmesh_framework_test/#navtest_switch"
+VARIANT_NAME = "navtest_lowered"
+
+
 def make_layer(x, y, z, size, out):
     sector_path = MOD_DIR + "\\navmesh_test.streamingsector"
     block_path = MOD_DIR + "\\navmesh_test.streamingblock"
@@ -41,8 +45,15 @@ def make_layer(x, y, z, size, out):
     resources = navmod.split_resources(tiles, MOD_DIR + "\\navmesh_test_{rx}_{ry}_0.navmesh")
     for i, r in enumerate(resources):
         r["ref"] = "$/navmesh_framework_test/#navtest_node_%d" % i
-    sec, centre, half = navmod.build_sector("navmesh_test", resources)
-    blk = navmod.build_block([(sector_path, centre)])
+    # world-variant test: every tile also has a version 10 m lower, used while
+    # the variant VARIANT_NAME is switched on
+    vid = navmod.variant_id(VARIANT_REF, VARIANT_NAME)
+    lowered = square(x, y, [h - 10.0 for h in z] if isinstance(z, list) else z - 10.0, size, layer=1)
+    for r in resources:
+        r["versions"] = {k: [(t, [], [vid]), (lowered[k], [vid], [vid])] for k, t in r["tiles"].items()}
+    sec, centre, half = navmod.build_sector("navmesh_test", resources, variant_ranges=1)
+    blk = navmod.build_block([(sector_path, centre,
+                               [dict(ref=VARIANT_REF, name=VARIANT_NAME, id=vid, range=1)])])
     files = []
     for path, f in ((sector_path, sec), (block_path, blk)):
         data, bufs = f.segments()

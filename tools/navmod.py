@@ -77,7 +77,7 @@ def _node_ref_bytes(ref):
     return p_vlq(-len(b)) + b          # length-prefixed, negative = UTF-8
 
 
-def build_sector(name, resources):
+def build_sector(name, resources, variant_ranges=0):
     """A navigation streaming sector holding our own tile resources.
 
     resources: [dict(path, agent ('Human'/'Vehicle'), tiles {(tx,ty): detour.Tile},
@@ -122,12 +122,20 @@ def build_sector(name, resources):
         rows = []
         refs = []
         pos = _res_pos(r, centre, i)
+        # each tile may come in versions for world variants: (tile, active ids, all ids);
+        # the game picks the version whose active ids match the variants switched on
+        versions = r.get("versions") or {}
         for k, key in enumerate(keys):
-            t = r["tiles"][key]
-            bi = f.add_buffer(detour.write_tile(t), BUFFER_FLAGS)
-            refs.append(0x80000000 | (bi + 2))       # +1 for 1-based, +1 for the node data buffer before
-            rows.append(_struct(f, [("tileX", "Int32", p_i32(t.x)), ("tileY", "Int32", p_i32(t.y)),
-                                    ("tileIndex", "Uint32", p_u32(k)), ("bufferIndex", "Uint32", p_u32(k))]))
+            for t, active, every in versions.get(key, [(r["tiles"][key], [], [])]):
+                bi = f.add_buffer(detour.write_tile(t), BUFFER_FLAGS)
+                refs.append(0x80000000 | (bi + 2))   # +1 for 1-based, +1 for the node data buffer before
+                props = [("tileX", "Int32", p_i32(t.x)), ("tileY", "Int32", p_i32(t.y)),
+                         ("tileIndex", "Uint32", p_u32(k)), ("bufferIndex", "Uint32", p_u32(len(refs) - 1))]
+                if active:
+                    props.append(("activeVariantIDs", "array:Uint32", p_u32(len(active)) + b"".join(p_u32(v) for v in active)))
+                if every:
+                    props.append(("allVariantIDs", "array:Uint32", p_u32(len(every)) + b"".join(p_u32(v) for v in every)))
+                rows.append(_struct(f, props))
         ts = list(r["tiles"].values())
         rmn = (min(t.bmin[0] for t in ts), min(t.bmin[2] for t in ts), min(t.bmin[1] for t in ts))
         rmx = (max(t.bmax[0] for t in ts), max(t.bmax[2] for t in ts), max(t.bmax[1] for t in ts))
@@ -158,31 +166,57 @@ def build_sector(name, resources):
     inner += p_vlq(len(node_idx)) + b"".join(p_i32(i + 1) for i in node_idx)
     refs = [r["ref"] for r in resources if r.get("ref")]
     inner += p_vlq(len(refs)) + b"".join(_node_ref_bytes(x) for x in refs)   # node refs
-    inner += p_vlq(1) + p_i32(0)                      # variant indices
+    # node ranges: 0 = always there, then one (empty) range per world variant
+    ranges = [0] + [len(node_idx)] * variant_ranges
+    inner += p_vlq(len(ranges)) + b"".join(p_i32(x) for x in ranges)   # variant indices
     inner += p_i32(0)                                 # persistent node index
     sector.appendix = p_i32(SECTOR_VERSION) + p_i32(len(inner) + 4) + inner
     return f, centre, half
 
 
+def variant_id(ref, name):
+    """A world variant's id the way entSpawner makes them: |int32(FNV-1a 32(ref + name))|."""
+    h = cr2w.fnv1a32(ref + name)
+    return abs(h - (1 << 32) if h >= 1 << 31 else h)
+
+
 def build_block(sector_paths):
-    """A worldStreamingBlock listing navigation sectors: [(path, centre)]."""
+    """A worldStreamingBlock listing navigation sectors: [(path, centre)] or
+    [(path, centre, variants)], variants = [dict(ref, name, id, range, default)]
+    (scripts switch them with WorldStateSystem.ToggleVariant(ref, name, on))."""
     f = cr2w.File()
     f.nid("worldStreamingBlock")
     blk = Obj("worldStreamingBlock")
     descs = []
-    for i, (path, centre) in enumerate(sector_paths):
+    for i, item in enumerate(sector_paths):
+        path, centre = item[0], item[1]
+        variants = item[2] if len(item) > 2 else []
         f.imports.append((path, 0, 4))                # soft async reference
         r = STREAMING_DISTANCE
         mn = (centre[0] - r, centre[1] - r, centre[2] - r)
         mx = (centre[0] + r, centre[1] + r, centre[2] + r)
         box = _struct(f, [("Min", "Vector4", _vec4(f, *mn, 1.0)), ("Max", "Vector4", _vec4(f, *mx, 1.0))])
-        descs.append(_struct(f, [
+        props = [
             ("data", "raRef:worldStreamingSector", p_u16(i + 1)),
             ("streamingBox", "Box", box),
-            ("numNodeRanges", "Uint32", p_u32(1)),
+            ("numNodeRanges", "Uint32", p_u32(1 + len(variants))),
+        ]
+        if variants:
+            vs = []
+            for v in variants:
+                vp = [("nodeRef", "NodeRef", _node_ref_bytes(v["ref"])),
+                      ("variantId", "Uint32", p_u32(v["id"])),
+                      ("name", "CName", p_u16(f.nid(v["name"]))),
+                      ("rangeIndex", "Uint32", p_u32(v["range"]))]
+                if v.get("default"):
+                    vp.append(("enabledByDefault", "Bool", p_u8(1)))
+                vs.append(_struct(f, vp))
+            props.append(("variants", "array:worldStreamingSectorVariant", p_u32(len(vs)) + b"".join(vs)))
+        props += [
             ("level", "Uint8", p_u8(3)),
             ("category", "worldStreamingSectorCategory", p_u16(f.nid("Navigation"))),
-        ]))
+        ]
+        descs.append(_struct(f, props))
     blk.props = [
         Prop("cookingPlatform", "ECookingPlatform", p_u16(f.nid("PLATFORM_PC"))),
         Prop("descriptors", "array:worldStreamingSectorDescriptor", p_u32(len(descs)) + b"".join(descs)),

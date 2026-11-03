@@ -95,6 +95,16 @@ public class NavTestSystem extends ScriptableSystem {
         return count;
     }
 
+    // Switches a world variant (as quests do) with Codeware's WorldStateSystem.
+    public func ToggleVariant(ref: String, name: String, state: Bool) -> Bool {
+        let ws = GameInstance.GetWorldStateSystem();
+        if !IsDefined(ws) {
+            return false;
+        }
+        ws.ToggleVariant(CreateNodeRef(ref), StringToName(name), state);
+        return true;
+    }
+
     public func Cancel() {
         if IsDefined(this.m_command) && IsDefined(this.m_npc) {
             this.m_npc.GetAIControllerComponent().CancelCommand(this.m_command);
